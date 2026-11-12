@@ -193,6 +193,34 @@ Each check creates an isolated temporary data directory, starts the real HTTP
 handler, sends generated WAV inputs, and verifies read-back or rendered output.
 The checks are bounded and do not require network access.
 
+## Incident preservation and continued-service runbook
+
+When a render job's durable state disagrees with its on-disk artifacts, the
+on-call procedure in
+[`docs/incident/runbook-render-state-divergence.md`](docs/incident/runbook-render-state-divergence.md)
+governs evidence preservation and service continuity. The supporting tooling
+is read-only with respect to the live data root:
+
+```bash
+# Read-only divergence scan (exit 3 = divergence present, evidence not yet fixed)
+go run ./cmd/incidentpreserve -data ./var/voice-timeline -scan-only
+
+# Full-tree preservation into an external bundle, with self-verification
+go run ./cmd/incidentpreserve -data ./var/voice-timeline \
+  -bundle-parent <evidence-parent-dir> -label <ticket-id>
+
+# Independent re-verification of a preserved bundle
+go run ./cmd/incidentpreserve -verify <bundle-dir>
+
+# Isolated rehearsal that constructs every divergence class in throwaway data
+go run ./cmd/incidentdrill
+```
+
+The tools never rewrite a job state, never delete staging entries, and expose
+no repair endpoint. Staging entries are classified by provenance links rather
+than age; entries whose redundancy cannot be positively proven are retained for
+the investigation regardless of how old they are.
+
 ## Deferred test boundary
 
 This baseline contains no unit tests, test fixtures, browser checks, or
